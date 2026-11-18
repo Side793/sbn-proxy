@@ -14,7 +14,10 @@ def get_book(isbn):
         url = f"https://opac.sbn.it/SRU?operation=searchRetrieve&version=1.1&recordSchema=dc&query=bath.isbn={isbn}"
         
         # Timeout a 8 secondi per evitare che l'app del dottore si blocchi se l'OPAC cade
-        response = requests.get(url, timeout=8)
+        headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+    }
+    response = requests.get(url, headers=headers, timeout=8)
         
         if response.status_code != 200:
             return jsonify({"error": "Errore OPAC SBN"}), 500
