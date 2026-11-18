@@ -1,53 +1,50 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
-import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 CORS(app) 
 
 @app.route('/api/book/<isbn>', methods=['GET'])
 def get_book(isbn):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    # Motore 1: OPAC SBN Mobile Gateway (Dati ministeriali italiani in JSON)
     try:
-        url = f"https://opac.sbn.it/SRU?operation=searchRetrieve&version=1.1&recordSchema=dc&query=bath.isbn={isbn}"
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=8)
-        
-        if response.status_code != 200:
-            return jsonify({
-                "error": "Blocco Server SBN",
-                "status_code": response.status_code,
-                "dettaglio_risposta": response.text[:200]
-            }), 500
+        url_sbn = f"http://opac.sbn.it/opacmobilegw/search.json?isbn={isbn}"
+        res_sbn = requests.get(url_sbn, headers=headers, timeout=5)
+        if res_sbn.status_code == 200:
+            data = res_sbn.json()
+            if isinstance(data, list) and len(data) > 0:
+                book = data[0]
+                return jsonify({
+                    "title": book.get("titolo", ""),
+                    "author": book.get("autorePrincipale", ""),
+                    "publisher": book.get("pubblicazione", ""),
+                    "year": book.get("annoPubblicazione", ""),
+                    "isbn": isbn
+                })
+    except Exception:
+        pass
 
-        root = ET.fromstring(response.content)
-        
-        ns = {
-            'srw': 'http://www.loc.gov/zing/srw/',
-            'dc': 'http://purl.org/dc/elements/1.1/'
-        }
+    # Motore 2: Fallback Google Books API (Intervento di emergenza se SBN fallisce)
+    try:
+        url_gb = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+        res_gb = requests.get(url_gb, timeout=5)
+        if res_gb.status_code == 200:
+            data = res_gb.json()
+            if data.get("totalItems", 0) > 0:
+                info = data["items"][0].get("volumeInfo", {})
+                return jsonify({
+                    "title": info.get("title", ""),
+                    "author": ", ".join(info.get("authors", [])),
+                    "publisher": info.get("publisher", ""),
+                    "year": info.get("publishedDate", "")[:4] if info.get("publishedDate") else "",
+                    "isbn": isbn
+                })
+    except Exception:
+        pass
 
-        num_records = root.find('.//srw:numberOfRecords', ns)
-        if num_records is None or num_records.text == '0':
-            return jsonify({"error": "not_found"}), 404
-
-        record = root.find('.//srw:recordData/*', ns)
-        
-        title = record.find('dc:title', ns)
-        author = record.find('dc:creator', ns)
-        publisher = record.find('dc:publisher', ns)
-        date = record.find('dc:date', ns)
-
-        return jsonify({
-            "title": title.text if title is not None else "",
-            "author": author.text if author is not None else "",
-            "publisher": publisher.text if publisher is not None else "",
-            "year": date.text if date is not None else "",
-            "isbn": isbn
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "not_found"}), 404
