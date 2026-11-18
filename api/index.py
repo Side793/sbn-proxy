@@ -17,7 +17,11 @@ def get_book(isbn):
         response = requests.get(url, headers=headers, timeout=8)
         
         if response.status_code != 200:
-            return jsonify({"error": "Errore OPAC SBN"}), 500
+            return jsonify({
+                "error": "Blocco Server SBN",
+                "status_code": response.status_code,
+                "dettaglio_risposta": response.text[:200]
+            }), 500
 
         root = ET.fromstring(response.content)
         
