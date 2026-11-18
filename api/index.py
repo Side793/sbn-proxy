@@ -22,12 +22,15 @@ def extract_year(*values):
 def clean_sbn_title(raw_title):
     if not raw_title:
         return ""
-    # Elimina la formulazione di responsabilità ISBD (" / Autore ; illustrazioni...")
     title = raw_title.split(" / ", 1)[0]
-    # Rimuove prefissi numerici o di collana tra parentesi quadre (es. "[1]: ")
     title = re.sub(r'^\s*\[[^\]]+\]\s*:\s*', '', title)
-    # Rimuove gli asterischi di non-ordinamento SBN (es. "*Nome della rosa")
     title = title.replace('*', '')
+    # Ricompatta gli articoli elisi (es. "L' interprete" -> "L'interprete")
+    title = re.sub(r"\b([lLdD]'|un')\s+", r"\1", title)
+    # Normalizza lo spazio ISBD prima dei due punti (" : " -> ": ")
+    title = re.sub(r'\s*:\s*', ': ', title)
+    # Rimuove le parentesi quadre attorno a note come ": [romanzo]"
+    title = re.sub(r'\[([^\]]+)\]', r'\1', title)
     return re.sub(r'\s+', ' ', title).strip(" /:;,")
 
 
