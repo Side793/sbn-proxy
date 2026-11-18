@@ -29,7 +29,14 @@ def clean_sbn_title(raw_title):
     title = re.sub(r"\b([lLdD]'|un')\s+", r"\1", title)
     # Normalizza lo spazio ISBD prima dei due punti (" : " -> ": ")
     title = re.sub(r'\s*:\s*', ': ', title)
-    # Rimuove le parentesi quadre attorno a note come ": [romanzo]"
+    # Rimuove in coda le pure etichette di genere (es. ": [romanzo]", ": romanzo", ": racconti")
+    title = re.sub(
+        r':\s*\[?(?:(?:un\s+)?romanzo|(?:un\s+)?racconto|racconti|poesie|poesia|thriller|giallo|noir|novelle|fiabe|favole|fumetto|graphic novel|commedia|tragedia|biografia|autobiografia|memorie)\]?\s*$',
+        '',
+        title,
+        flags=re.IGNORECASE,
+    )
+    # Rimuove eventuali altre parentesi quadre residue
     title = re.sub(r'\[([^\]]+)\]', r'\1', title)
     return re.sub(r'\s+', ' ', title).strip(" /:;,")
 
