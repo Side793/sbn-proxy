@@ -11,14 +11,16 @@ def get_book(isbn):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    # Motore 1: OPAC SBN Mobile Gateway (Dati ministeriali italiani in JSON)
+    # Motore 1: OPAC SBN Mobile Gateway
     try:
         url_sbn = f"http://opac.sbn.it/opacmobilegw/search.json?isbn={isbn}"
         res_sbn = requests.get(url_sbn, headers=headers, timeout=5)
         if res_sbn.status_code == 200:
             data = res_sbn.json()
-            if isinstance(data, list) and len(data) > 0:
-                book = data[0]
+            # SBN restituisce un dizionario con la chiave 'briefRecords' che contiene la lista dei risultati
+            records = data.get('briefRecords', []) if isinstance(data, dict) else data
+            if isinstance(records, list) and len(records) > 0:
+                book = records[0]
                 return jsonify({
                     "title": book.get("titolo", ""),
                     "author": book.get("autorePrincipale", ""),
@@ -26,10 +28,10 @@ def get_book(isbn):
                     "year": book.get("annoPubblicazione", ""),
                     "isbn": isbn
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Errore SBN: {e}")
 
-    # Motore 2: Fallback Google Books API (Intervento di emergenza se SBN fallisce)
+    # Motore 2: Fallback Google Books API
     try:
         url_gb = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
         res_gb = requests.get(url_gb, timeout=5)
@@ -44,7 +46,7 @@ def get_book(isbn):
                     "year": info.get("publishedDate", "")[:4] if info.get("publishedDate") else "",
                     "isbn": isbn
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Errore Google Books: {e}")
 
     return jsonify({"error": "not_found"}), 404
